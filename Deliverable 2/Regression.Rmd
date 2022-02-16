@@ -24,7 +24,8 @@ dataToRegress=na.omit(fromPy)
 
 ```{r}
 # rename the colomns
-fix(dataToRegress)
+# fix(dataToRegress)
+names(dataToRegress)=c("Country", "Code", "Region", "Subregion", "Percapitaplasticwaste", "Plasticwastegeneration", "Mismanagedwaste", "Mismanagedwaste2025")
 ```
 
 
