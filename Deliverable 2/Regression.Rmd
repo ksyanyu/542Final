@@ -1,0 +1,130 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+link='https://raw.githubusercontent.com/ksyanyu/542Final/main/allData.csv'
+
+library(rio)
+
+#getting the data TABLE from the file in the cloud:
+fromPy=rio::import(link)
+
+# reset indexes to R format:
+row.names(fromPy)=NULL
+```
+
+```{r}
+# dealing with the missing values
+# remove all the rows including missing values
+dataToRegress=na.omit(fromPy)
+```
+
+```{r}
+# rename the colomns
+fix(dataToRegress)
+```
+
+
+```{r}
+str(dataToRegress)
+```
+
+```{r}
+## standardizing
+#as.data.frame(scale(dataToRegress2))
+
+
+column1=dataToRegress[,6]
+demoRegress=scale(as.numeric(column1))
+```
+```{r}
+str(demoRegress)
+```
+
+```{r}
+dataToRegress[,6]=demoRegress
+str(dataToRegress)
+
+```
+
+
+
+```{r}
+str(dataToRegress)
+```
+
+
+```{r}
+# EXPLANATORY APPROACH
+
+# State hypotheses:
+# mismanaged plastic waste increase as total plastic waste increase
+hypo1=formula(Mismanagedwaste~ Plasticwastegeneration)
+```
+
+```{r}
+# Compute regression models:
+#
+# results
+gauss1=glm(hypo1,
+           data = dataToRegress,
+           family = 'gaussian')
+```
+
+```{r}
+summary(gauss1)
+# p<0.001
+# significant
+```
+
+```{r}
+library(rsq)
+rsq(gauss1,adj=T)
+```
+```{r}
+plot(gauss1,1)
+```
+
+```{r}
+# Normality of residuals is assumed:
+
+# Visual exploration:
+
+plot(gauss1,2)
+
+```
+```{r}
+# The data is normal if the p-value is above 0.05
+shapiro.test(gauss1$residuals)
+```
+```{r}
+# Homoscedasticity is assumed, so you need to check if residuals are spread equally along the ranges of predictors:
+
+# Visual exploration:
+
+plot(gauss1, 3)
+```
+
+```{r}
+library(zoo)
+library(lmtest)
+
+#pvalue<0.05 you cannot assume Homoscedasticity
+bptest(gauss1) 
+```
+```{r}
+# cannot assume homoscedasticity
+# residuals are not spread equally along the ranges of predictors, 
+# in other word, the variance of the dependent variable is the same for all the data.
+```
+
+```{r}
+# a summary plot of the work:
+library(sjPlot)
+## Learn more about sjPlot with 'browseVignettes("sjPlot")'.
+plot_models(gauss1,vline.color = "grey")
+```
+

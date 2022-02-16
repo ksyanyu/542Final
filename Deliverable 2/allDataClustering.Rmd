@@ -1,0 +1,231 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+
+ 
+```{r}
+# Dimensionality Reduction in R
+# As the name implies, we want to reduce a set of variables into one (or two) that summarizes them. In this session we will practice two basic techniques:
+# Cluster analysis.
+# Factor analysis.
+```
+
+
+
+```{r getData, eval=FALSE}
+link='https://raw.githubusercontent.com/ksyanyu/542Final/main/allData.csv'
+
+library(rio)
+
+#getting the data TABLE from the file in the cloud:
+fromPy=rio::import(link)
+```
+```{r}
+str(fromPy)
+```
+
+```{r}
+# Cluster Analysis
+# preparing the data
+```
+
+```{r}
+# I. Data to cluster
+```
+
+```{r}
+# subset the columns
+selection=c("Country", "Percapitaplasticwaste(kg/person/day)", "Plasticwastegeneration(tonnes)", "Mismanagedwaste(percent)", "Mismanagedwaste2025(percent)")
+dataToCluster=fromPy[,selection]
+```
+
+```{r}
+# Set labels as row index
+row.names(dataToCluster)=dataToCluster$Country
+dataToCluster$Country=NULL
+```
+
+```{r}
+# Decide if data needs to be transformed:
+boxplot(dataToCluster,horizontal = T, las=2,cex.axis=0.4)
+```
+```{r}
+# The data values don't have a similar range, then need to transform the data. Possible 
+# alternatives could have been:
+
+# standardizing
+as.data.frame(scale(dataToCluster))
+```
+
+ 
+
+
+```{r}
+boxplot(scale(dataToCluster),horizontal = T, las=2,cex.axis=0.4)
+```
+```{r}
+scaleDataToCluster=scale(dataToCluster)
+boxplot(scaleDataToCluster,horizontal = T, las=2,cex.axis=0.4)
+```
+
+
+```{r}
+# II. Compute the DISTANCE MATRIX
+```
+
+
+```{r}
+set.seed(999) # this is for replicability of results
+
+# Decide distance method and compute distance matrix:
+library(cluster)
+scaleDataToCluster_DM=daisy(x=scaleDataToCluster, metric = "gower")
+```
+
+
+```{r}
+# replicate the data and dealing with the missing values
+dataToCluster2=scaleDataToCluster
+# remove all the rows including missing values
+dataToCluster3=na.omit(dataToCluster2)
+```
+
+```{r}
+dataToCluster3_DM=daisy(x=dataToCluster3, metric = "gower")
+```
+
+
+```{r}
+# Compute Clusters
+# Computer suggestions
+# Using function fviz_nbclust from the library factoextra we can see how many clustered are suggested.
+# For partitioning
+library(factoextra)
+library(ggplot2)
+fviz_nbclust(dataToCluster3, 
+             pam,
+             diss=dataToCluster3_DM,
+             method = "gap_stat",
+             k.max = 10,verbose = F)
+```
+
+```{r}
+head(dataToCluster3)
+```
+
+
+```{r}
+# for hierarchical (agglomerative)
+fviz_nbclust(dataToCluster3, 
+             hcut,
+             diss=dataToCluster3_DM,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "agnes")
+
+```
+
+```{r}
+# For hierarchical (divisive):
+fviz_nbclust(dataToCluster3, 
+             hcut,
+             diss=dataToCluster3_DM,
+             method = "gap_stat",
+             k.max = 10,
+             verbose = F,
+             hc_func = "diana")
+```
+```{r}
+# apply function: indicate a priori the amount of clusters required
+NumberOfClusterDesired=3
+
+# Partitioning technique
+res.pam = pam(x=dataToCluster3_DM,
+              k = NumberOfClusterDesired,
+              cluster.only = F)
+
+# Hierarchical technique- agglomerative approach
+
+library(factoextra)
+res.agnes= hcut(dataToCluster3_DM, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='agnes',
+                hc_method = "ward.D2")
+
+# Hierarchical technique- divisive approach
+res.diana= hcut(dataToCluster3_DM, 
+                k = NumberOfClusterDesired,
+                isdiss=TRUE,
+                hc_func='diana',
+                hc_method = "ward.D2")
+```
+
+```{r}
+# Add results to original data frame:
+
+# the version without missing values
+fromPy2=na.omit(fromPy)
+
+
+fromPy2$pam=as.factor(res.pam$clustering)
+fromPy2$agn=as.factor(res.agnes$cluster)
+fromPy2$dia=as.factor(res.diana$cluster)
+```
+
+```{r}
+# Evaluate Results.
+# using Plot silhouettes
+
+# from factoextra
+fviz_silhouette(res.pam)
+```
+```{r}
+fviz_silhouette(res.agnes)
+```
+
+```{r}
+library(factoextra)
+fviz_silhouette(res.diana)
+```
+
+```{r}
+# 3.2 Detecting cases badly clustered
+
+# Save individual silhouettes:
+# Previos results have saved important information:
+head(data.frame(res.pam$silinfo$widths),10)
+```
+
+```{r}
+pamEval=data.frame(res.pam$silinfo$widths)
+agnEval=data.frame(res.agnes$silinfo$widths)
+diaEval=data.frame(res.diana$silinfo$widths)
+
+pamPoor=rownames(pamEval[pamEval$sil_width<0,])
+agnPoor=rownames(agnEval[agnEval$sil_width<0,])
+diaPoor=rownames(diaEval[diaEval$sil_width<0,])
+```
+
+```{r}
+library("qpcR") 
+library(MASS)
+library(dplyr)
+library(minpack.lm)
+library(rgl)
+library(robustbase)
+library(Matrix)
+```
+```{r}
+bap_Clus=as.data.frame(qpcR:::cbind.na(sort(pamPoor), sort(agnPoor),sort(diaPoor)))
+names(bap_Clus)=c("pam","agn","dia")
+bap_Clus
+```
+
