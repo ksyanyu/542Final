@@ -16,6 +16,7 @@ knitr::opts_chunk$set(echo = TRUE)
 # As the name implies, we want to reduce a set of variables into one (or two) that summarizes them. In this session we will practice two basic techniques:
 # Cluster analysis.
 # Factor analysis.
+
 ```
 
 
