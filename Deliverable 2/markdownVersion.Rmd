@@ -5,7 +5,7 @@ date: "2/16/2022"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-```{r getData, eval=FALSE}
+```{r getData, eval=TRUE}
 link='https://raw.githubusercontent.com/ksyanyu/542Final/main/allData.csv'
 
 library(rio)
@@ -95,6 +95,13 @@ dataToCluster2=scaleDataToCluster
 # remove all the rows including missing values
 dataToCluster3=na.omit(dataToCluster2)
 ```
+
+
+```{r}
+cor(dataToCluster3)
+```
+
+
 
 ```{r}
 dataToCluster3_DM=daisy(x=dataToCluster3, metric = "gower")
