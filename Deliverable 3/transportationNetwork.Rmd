@@ -1,0 +1,270 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+# What I am gonna explore is a railway transportation network in a province which called Hubei in China
+
+# opening excel
+library(rio)
+
+linkAdjcMx='https://github.com/ksyanyu/542Final/raw/main/Deliverable%203/trasportationConnection.xlsx'
+
+# open the first file
+adjTrans=import(linkAdjcMx,which = 1)
+
+
+```
+
+```{r}
+#To get a squared matrix, move the column Names as the row names
+
+row.names(adjTrans)=adjTrans$City
+adjTrans$City=NULL
+
+# then
+head(adjTrans)
+```
+
+```{r}
+# This matrix saved as a data frame has now to be converted into a matrix
+adjTrans=as.matrix(adjTrans) 
+```
+
+```{r}
+#From this kind of structure (the adjacency matrix), we can easily create a network via Igraph:
+
+library(igraph)
+TransNet=graph.adjacency(adjTrans,mode="undirected",weighted=NULL)
+
+TransNet
+```
+```{r}
+# A network is composed of nodes and edges that connect them. Compute how many of them:
+
+vcount(TransNet) #count of nodes
+
+```
+
+```{r}
+ecount(TransNet) #count of edges
+```
+
+```{r}
+
+#visualize: we can see that Wuhan is almost the center of the net
+
+plot.igraph(TransNet,
+            vertex.color = 'yellow',
+            edge.color='lightblue')
+```
+```{r}
+# bring some other information about the nodes:
+
+# the nodes attributes (information in file 2)
+attributes=import(linkAdjcMx,which = 2)
+head(attributes)
+```
+
+```{r}
+TransNet=set_vertex_attr(TransNet,"WuhanCityCircle",value=attributes$WuhanCityCircle)
+
+TransNet
+```
+
+```{r}
+vertex_attr_names(TransNet) 
+```
+
+```{r}
+# check if our network is connected:
+
+is_connected(TransNet)
+
+```
+
+```{r}
+components(TransNet)$no
+```
+
+
+
+```{r}
+# Exploring the NETWORK
+```
+
+```{r}
+# Density: from 0 to 1, where 1 makes it a ‘complete’ network: there is a link between every pair of nodes.
+graph.density(TransNet)
+```
+
+```{r}
+# Diameter: worst case escenario for number of steps for someone to contact another one (only for connected component).
+diameter(TransNet)
+```
+```{r}
+# Local clustering coefficient of a node is away to measure the level of connectivity its neighbors. If all its neighbors are connected among one another you get 1; if none of them is connected you get zero. Then, the average clustering coefficient tells you the average of those values.
+# we need some help beyond Igraph:
+transitivity(TransNet,type = 'average')
+```
+
+```{r}
+# Shortest path (average): it gets the average of every shortest path among the nodes in the network. A shorter path is the shortest walk from one node to another. ( random network)
+average.path.length(TransNet)
+```
+
+```{r}
+# Assortativity (degree): it is a measure to see if nodes are connecting to other nodes similar in degree. Closer to 1 means higher assortativity, closer to -1 diassortativity; while 0 is no assortitivity.
+assortativity_degree(TransNet)
+
+```
+
+```{r}
+# You can also compute assortativity using an attribute of interest:
+
+attrNet=V(TransNet)$WuhanCityCircle
+assortativity(TransNet,attrNet)
+```
+
+```{r}
+# Coloring by attribute:
+
+LabelsColor=attrNet+1
+colors=c('lightblue','magenta')
+plot.igraph(TransNet,
+       vertex.color = colors[LabelsColor])
+```
+
+```{r}
+# we can see that in Wuhan city circle, Wuhan, Xiaogan and Ezhou is doing better in connection than Xianning
+```
+
+
+```{r}
+#How many cliques can be found in this network?
+length(cliques(TransNet))
+```
+
+```{r}
+# How many maximal cliques are there in this network?
+# How many cliques
+count_max_cliques(TransNet)
+```
+
+```{r}
+clique_num(TransNet)
+```
+
+```{r}
+max_cliques(TransNet,min=7)
+```
+
+```{r}
+communities=cluster_louvain(TransNet)
+(partition=membership(communities))
+```
+
+
+```{r}
+# use those values to make a plot to highlight the communities:
+
+Labels=partition
+numberOfClasses = length(unique(Labels)) 
+
+library(RColorBrewer)
+colorForScale='Set2'
+colors = brewer.pal(numberOfClasses, colorForScale)
+
+plot.igraph(TransNet,
+             vertex.color = colors[Labels],
+             edge.color='lightblue')
+```
+
+```{r}
+# Than, Exploration of network actors
+
+rounding=3
+degr=round(degree(TransNet,,normalized=T),rounding)
+close=round(closeness(TransNet,,normalized=T),rounding)
+betw=round(betweenness(TransNet,,normalized=T),rounding)
+
+
+```
+
+```{r}
+DFCentrality=as.data.frame(cbind(degr,close,betw),stringsAsFactors = F)
+names(DFCentrality)=c('Degree','Closeness','Betweenness')
+DFCentrality$City=row.names(DFCentrality)
+row.names(DFCentrality)=NULL
+head(DFCentrality)
+```
+
+```{r}
+library(ggplot2)
+ggplot(DFCentrality, aes(x=Betweenness, y=Closeness)) + theme_classic()+
+  scale_size(range = c(1, 25))  + geom_text(aes(label=City,color=Degree)) +
+  scale_colour_gradient(low = "Orange", high = "Black")
+```
+
+```{r}
+#The node with the highest degree could be considered a hub in the network:
+
+DFCentrality[which.max(DFCentrality$Degree),]
+
+```
+
+```{r}
+#We can plot the neighbors of the hub, its ego network:
+
+#Determine the hub name:
+#who
+hub=DFCentrality[which.max(DFCentrality$Degree),]$City
+```
+
+```{r}
+# Determine the hub position:
+#where (a character to numeric)
+hubix=as.numeric(row.names(DFCentrality[which.max(DFCentrality$Degree),]))
+```
+
+```{r}
+HubEgonets=make_ego_graph(TransNet, nodes=hubix)
+# HubEgonets is a list, get the first one:
+HubEgonet=HubEgonets[[1]]
+```
+
+```{r}
+# Just plot the ego you got:
+egoSizes=rep(8,vcount(HubEgonet)) # sizes '5' for every node
+egoSizes[hubix]=30  # size '40' for this one
+V(HubEgonet)$size=egoSizes # saving sizes
+plot.igraph(HubEgonet,
+             vertex.color = 'yellow',
+             edge.color='lightblue')
+```
+```{r}
+#Can this network be disconnected? If so, we can compute the minimum number of nodes that must be removed to disconnect the network (create at least two components):
+
+vertex_connectivity(TransNet)
+
+```
+
+```{r}
+#Who is the sole node with the power to break the network?
+
+(cut=articulation_points(TransNet))
+
+```
+
+```{r}
+# There is no such role as this function in this transportation net work
+```
+
+```{r}
+# Exporting the network
+write_graph(TransNet, "TransNet.graphml", "graphml")
+```
+
